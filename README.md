@@ -1,3 +1,9 @@
+## 개요
+megayuchi의 D3D12프로그래밍 강의 예제 소스 코드입니다.
+d3d12 프로그래밍 기초편(유료) - https://inf.run/dHDTG
+D3D12 프로그래밍 기초 플러스(무료) https://inf.run/Desy1
+DirectX Raytracing(유료) https://inf.run/PSh7W
+
 ## 요구사항
 Visual Studio 2022 , Windows 10/11
 
