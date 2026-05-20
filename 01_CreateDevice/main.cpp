@@ -19,6 +19,7 @@ extern "C" { __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001; }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // D3D12 Agility SDK Runtime
+// PE 파일에서 D3D12SDKVersion과 D3D12SDKPath 심볼을 export하여 런타임에 D3D12 Agility SDK의 버전과 경로를 알려준다.
 
 extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 615; }	
 
@@ -82,6 +83,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	g_pRenderer = new CD3D12Renderer;
 	g_pRenderer->Initialize(g_hMainWindow, TRUE, TRUE);
 
+	// 게임 루프에서는 메시지 없을때 blocking 되는 get message를 사용하지 않는다.
+	// 대신에 peekmessage를 사용한다.
+	
 	// Main message loop:
 	//while (GetMessage(&msg, nullptr, 0, 0))
 	//{
@@ -91,12 +95,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	//		DispatchMessage(&msg);
 	//	}
 	//}
+	 
+	// 렌더링 준비가 끝났으니 메시지 루프로 돌아 옴
 	// Main message loop:
 	while (1)
 	{
 		// call WndProc
 		//g_bCanUseWndProc == FALSE이면 DefWndProc호출
-
+		// GetMessage는 메시지가 없으면 blocking 된다.
+        // PeekMessage는 메시지가 없으면 바로 넘어간다.
 		BOOL	bHasMsg = PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE);
 
 		if (bHasMsg)

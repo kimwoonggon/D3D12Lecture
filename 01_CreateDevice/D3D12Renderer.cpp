@@ -25,17 +25,28 @@ BOOL CD3D12Renderer::Initialize(HWND hWnd, BOOL bEnableDebugLayer, BOOL bEnableG
 	DWORD dwCreateFactoryFlags = 0;
 
 	// if use debug Layer...
+	// True Debug Layer 매우 중요하다.
+	// D3D런타임에서 입력 파라미터 정상 체크, 리소스 leak 체크.
+	// 대신 느리다. 속도가 느리면 빠르게 짜야지 안 키는건 비추천.
 	if (bEnableDebugLayer)
 	{
 		// Enable the D3D12 debug layer.
+		// IID_PPV_ARGS : 정석적인 COM을 쓰는 부분이 아님
+
 		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&pDebugController))))
+			//pDebugController는 _vfptr (버추얼포인터)
+			// dll의 구현은 어딘가에 있을거고 virtual table의 포인터를 주는 거임
 		{
 			pDebugController->EnableDebugLayer();
 		}
 		dwCreateFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
 		if (bEnableGBV)
 		{
+			// CPU 타임라인에서만 Debug Layer가 검증되는데, GPU 리소스의 주소가 정상인지 상태가 합당한지 검토 필요
+			// Shader 코드의 런타임 체크 수행
+			// 상황이 터지기 전에 gpu time라인 체크해서 알려줌
 			ID3D12Debug5*	pDebugController5 = nullptr;
+			// QueryInteface: 그 기능을 가지고 있다면 포인터를 줘라
 			if (S_OK == pDebugController->QueryInterface(IID_PPV_ARGS(&pDebugController5)))
 			{
 				pDebugController5->SetEnableGPUBasedValidation(TRUE);
@@ -46,6 +57,7 @@ BOOL CD3D12Renderer::Initialize(HWND hWnd, BOOL bEnableDebugLayer, BOOL bEnableG
 	}
 
 	// Create DXGIFactory
+	// SwapChain을 위해 더블버퍼링을 관장하는 DXGI가 필요하다.
 	CreateDXGIFactory2(dwCreateFactoryFlags, IID_PPV_ARGS(&pFactory));
 
 	D3D_FEATURE_LEVEL	featureLevels[] =
@@ -62,6 +74,7 @@ BOOL CD3D12Renderer::Initialize(HWND hWnd, BOOL bEnableDebugLayer, BOOL bEnableG
 	for (DWORD featerLevelIndex = 0; featerLevelIndex < FeatureLevelNum; featerLevelIndex++)
 	{
 		UINT adapterIndex = 0;
+		// 그래픽카드를 열거한다. (DXGI는 그래픽카드 열거기능도 있다)
 		while (DXGI_ERROR_NOT_FOUND != pFactory->EnumAdapters1(adapterIndex, &pAdapter))
 		{
 			pAdapter->GetDesc1(&AdapterDesc);
@@ -140,11 +153,15 @@ lb_exit:
 		IDXGISwapChain1*	pSwapChain1 = nullptr;
 		if (FAILED(pFactory->CreateSwapChainForHwnd(m_pCommandQueue, hWnd, &swapChainDesc, &fsSwapChainDesc, nullptr, &pSwapChain1)))
 		{
+			
 			__debugbreak();
 		}
 		pSwapChain1->QueryInterface(IID_PPV_ARGS(&m_pSwapChain));
 		pSwapChain1->Release();
 		pSwapChain1 = nullptr;
+		// 당장 그려야할 백버퍼의 인덱스를 알고자 함임
+		// 다 그리고 Present() 호출 시 0번과 1번의 역할이 바뀜 
+		// 이걸 rtvHandle에 전달하고, m_pCommandList -> OMSetRenderTarget(1, &rtvHandle, FALSE ,nullptr); 과 같이 수행
 		m_uiRenderTargetIndex = m_pSwapChain->GetCurrentBackBufferIndex();
 	}
 
@@ -156,16 +173,25 @@ lb_exit:
 	// Descriptor Table
 	// |        0        |        1	       |
 	// | Render Target 0 | Render Target 1 |
+	// D3D11이였으면 RTV를 바로 Pixel Shader로 꽂을 수 있었음
 	for (UINT n = 0; n < SWAP_CHAIN_FRAME_COUNT; n++)
 	{
+		// 여기서 swapchain을 위한 texture를 얻어옴
 		m_pSwapChain->GetBuffer(n, IID_PPV_ARGS(&m_pRenderTargets[n]));
+		// descriptorHeap : descriptorTable을 저장할 수 있는 물리 메모리 -> offset 가지고 왔다갔다 함
+		// CreateRenderTargetView과 반환하는 것은 D3D11과 다르게 포인터임
+		// m_pRenderTargets[n]을 어떻게 사용하겠다라는 정보를 기록하는 것임
 		m_pD3DDevice->CreateRenderTargetView(m_pRenderTargets[n], nullptr, rtvHandle);
-		rtvHandle.Offset(1, m_rtvDescriptorSize);
+		rtvHandle.Offset(1, m_rtvDescriptorSize); // m_rtvDescriptorSize는 32였음 즉 32*1만큼 이동한다.
 	}
+	// 렌더타깃 끝
 
+
+	// 명령어를 작성할 기록부
 	CreateCommandList();
 	
 	// Create synchronization objects.
+
 	CreateFence();
 
 	bResult = TRUE;
@@ -196,6 +222,7 @@ void CD3D12Renderer::BeginRender()
 	if (FAILED(m_pCommandAllocator->Reset()))
 		__debugbreak();
 
+	// z 버퍼는 일단 nullptr
 	if (FAILED(m_pCommandList->Reset(m_pCommandAllocator, nullptr)))
 		__debugbreak();
 
@@ -221,6 +248,8 @@ void CD3D12Renderer::EndRender()
     m_pCommandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 }
 
+// 화면의 앞뒤를 진짜 바꾼다.
+
 void CD3D12Renderer::Present()
 {
 	//
@@ -234,7 +263,7 @@ void CD3D12Renderer::Present()
 
 	if (!uiSyncInterval)
 	{
-		uiPresentFlags = DXGI_PRESENT_ALLOW_TEARING;
+		uiPresentFlags = DXGI_PRESENT_ALLOW_TEARING; // 화면의 주사율과 gpu가 안맞을때 화면 찢어짐 허용
 	}
 
 	HRESULT hr = m_pSwapChain->Present(uiSyncInterval, uiPresentFlags);
@@ -245,6 +274,7 @@ void CD3D12Renderer::Present()
 	}
 
 	// for next frame
+	// present를 했으니까 다음 프레임을 따온다.
     m_uiRenderTargetIndex = m_pSwapChain->GetCurrentBackBufferIndex();
 
 
@@ -265,7 +295,13 @@ void CD3D12Renderer::WaitForFenceValue()
 	// Wait until the previous frame is finished.
 	if (m_pFence->GetCompletedValue() < ExpectedFenceValue)
 	{
+		/*
+		* Fence의 CompletedValue가 ExpectedFenceValue 이상이 되는 순간,
+		  m_hFenceEvent를 signaled 상태로 바꿔줘.
+		  m_hFenceEvent 아까 만든 CreateEvent (윈도우 이벤트임)
+		*/
 		m_pFence->SetEventOnCompletion(ExpectedFenceValue, m_hFenceEvent);
+		// 여기서 멈추는 거임 (스레드 블로킹)
 		WaitForSingleObject(m_hFenceEvent, INFINITE);
 	}
 }
@@ -330,6 +366,8 @@ BOOL CD3D12Renderer::CreateDescriptorHeap()
 	HRESULT hr = S_OK;
 
 	// 렌더타겟용 디스크립터힙
+	// UAV, Constant Buffer 등이 있음
+	// 렌더타겟이 써야 하니까, 렌더 타깃이 어떤 건지 descriptor table에 전달할 데이터가 필요하다
 	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
 	rtvHeapDesc.NumDescriptors = SWAP_CHAIN_FRAME_COUNT;	// SwapChain Buffer 0	| SwapChain Buffer 1
 	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
@@ -338,6 +376,7 @@ BOOL CD3D12Renderer::CreateDescriptorHeap()
 	{
 		__debugbreak();
 	}
+	// offset 가지고 heap에서 왔다갔다 해야 한다.
 
 	m_rtvDescriptorSize = m_pD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
@@ -357,6 +396,8 @@ void CD3D12Renderer::Cleanup()
 
 	CleanupDescriptorHeap();
 
+	// 스왑체인에서 가져온 프레임 두개를 릴리즈 한다.
+	// 리턴값은 rax 레지스터로 들어오고 이게 0이 되어야 한다.
 	for (DWORD i = 0; i < SWAP_CHAIN_FRAME_COUNT; i++)
 	{
 		if (m_pRenderTargets[i])
@@ -384,12 +425,16 @@ void CD3D12Renderer::Cleanup()
 	if (m_pD3DDevice)
 	{
 		ULONG ref_count = m_pD3DDevice->Release();
+		// 여기가 중요
+		// 레퍼런스 카운터가 0이 아니면 어딘가 안지워진거임
+
 		if (ref_count)
 		{
 			//resource leak!!!
 			IDXGIDebug1* pDebug = nullptr;
 			if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&pDebug))))
 			{
+				// 메모리Leak 나는 부분을 알려줌
 				pDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_SUMMARY);
 				pDebug->Release();
 			}

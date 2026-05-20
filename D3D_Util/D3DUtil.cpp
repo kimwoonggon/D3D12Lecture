@@ -59,7 +59,9 @@ void SetDebugLayerInfo(ID3D12Device* pD3DDevice)
 	pD3DDevice->QueryInterface(IID_PPV_ARGS(&pInfoQueue));
 	if (pInfoQueue)
 	{
+		// CRT HEAP 이 아니라 D3D 런타임이나 GPU 쪽에 HEAP 메모리가 Crash 났을 때
 		pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+		// D3D 에러가 났을때 캐치
 		pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
 
 		D3D12_MESSAGE_ID hide[] =
