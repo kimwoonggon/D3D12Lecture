@@ -34,6 +34,9 @@ lb_true:
 	m_dwInitRefCount++;
 	return m_dwInitRefCount;
 }
+// 사실 RootSignature에서 하는 건 없다
+// Vertex Shader만 사용하기 때문에
+// 여기서는 껍데기만 만든다
 BOOL CBasicMeshObject::InitRootSinagture()
 {
 	ID3D12Device5* pD3DDeivce = m_pRenderer->INL_GetD3DDevice();
@@ -104,14 +107,25 @@ BOOL CBasicMeshObject::InitPipelineState()
 	psoDesc.pRootSignature = m_pRootSignature;
 	psoDesc.VS = CD3DX12_SHADER_BYTECODE(pVertexShader->GetBufferPointer(), pVertexShader->GetBufferSize());
 	psoDesc.PS = CD3DX12_SHADER_BYTECODE(pPixelShader->GetBufferPointer(), pPixelShader->GetBufferSize());
+	// D3D12_DEFAULT에 설정
+	// wireframe 사용여부, cullmode, frontface 등 설정
+	// z buffer, stencil buffer 등 설정
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	psoDesc.DepthStencilState.DepthEnable = FALSE;
 	psoDesc.DepthStencilState.StencilEnable = FALSE;
+	// MSAA랑 관련됨
+	// 4x MSAA 라면 0xF (1111): 0, 1, 2, 3번 샘플 모두 활성화
 	psoDesc.SampleMask = UINT_MAX;
+	// 일반적으로 Triangle
 	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	// 스왑 체인에 버퍼가 2개(프론트/백)든 
+	// 3개든 상관없이, GPU가 현재 프레임을 그리기 위해 동시에 활성화하는 도화지의 개수가 NumRenderTargets = 1인 것
 	psoDesc.NumRenderTargets = 1;
 	psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	// psoDesc.SampleDesc.Count = 1;은 "멀티샘플 안티앨리어싱(MSAA)을 쓰지 않고, 
+	// 하나의 픽셀당 딱 1개의 샘플점만 생성해서 렌더링하겠다"라는 의미
+    // 만약에 psoDesc.SampleDesc.Count = 4;로 설정하면, "멀티샘플 안티앨리어싱(MSAA)을 사용해서, 하나의 픽셀당 4개의 샘플점이 생성되어 렌더링하겠다"라는 의미
 	psoDesc.SampleDesc.Count = 1;
 	if (FAILED(pD3DDeivce->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pPipelineState))))
 	{
@@ -177,8 +191,8 @@ BOOL CBasicMeshObject::CreateMesh()
 
 	// Initialize the vertex buffer view.
 	m_VertexBufferView.BufferLocation = m_pVertexBuffer->GetGPUVirtualAddress();
-	m_VertexBufferView.StrideInBytes = sizeof(BasicVertex);
-	m_VertexBufferView.SizeInBytes = VertexBufferSize;
+    m_VertexBufferView.StrideInBytes = sizeof(BasicVertex); // 한 버텍스의 길이
+	m_VertexBufferView.SizeInBytes = VertexBufferSize; // 총사이즈 (버텍스 모두의 길이)
 
 	bResult = TRUE;
 
