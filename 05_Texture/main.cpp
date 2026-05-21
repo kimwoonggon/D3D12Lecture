@@ -48,6 +48,8 @@ void* g_pMeshObj = nullptr;
 ULONGLONG g_PrvFrameCheckTick = 0;
 ULONGLONG g_PrvUpdateTick = 0;
 DWORD	g_FrameCount = 0;
+// WIN32 GDI TEST용
+DWORD g_SquareColorState = 0; // 0: 노란색, 1: 초록색, 2: 파란색
 
 void RunGame();
 void Update();
@@ -122,7 +124,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		}
 		else
 		{
-			RunGame();
+			//RunGame();
 		}
 	}
 	if (g_pMeshObj)
@@ -266,11 +268,56 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				}
 			}
 			break;
+
+		case WM_KEYDOWN:
+			{
+				// 만약 누른 키가 '스페이스바(VK_SPACE)' 라면?
+				if (wParam == VK_SPACE)
+				{
+					
+					g_SquareColorState = (g_SquareColorState + 1) % 3;
+					//  창을 강제로 더럽히고 즉시 그리게 만듭니다!
+					InvalidateRect(hWnd, nullptr, TRUE);
+					UpdateWindow(hWnd);
+				}
+			}
+			break;
+
 		case WM_PAINT:
 			{
 				PAINTSTRUCT ps;
 				HDC hdc = BeginPaint(hWnd, &ps);
-				// TODO: Add any drawing code that uses hdc here...
+
+				// 3. g_SquareColorState 값에 따라 어떤 브러시(색상)를 만들지 switch 문으로 결정합니다.
+				COLORREF selectColor;
+				switch (g_SquareColorState)
+				{
+				case 0:
+					selectColor = RGB(255, 255, 0); // 노란색
+					break;
+				case 1:
+					selectColor = RGB(0, 255, 0);   // 초록색
+					break;
+				case 2:
+					selectColor = RGB(0, 0, 255);   // 파란색
+					break;
+				}
+
+				HBRUSH hNewBrush = CreateSolidBrush(selectColor);
+				HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hNewBrush);
+
+				// 4. 결정된 색상 브러시로 사각형 그리기
+				Rectangle(hdc, 50, 50, 400, 200);
+
+				// 5. 텍스트 출력
+				SetBkMode(hdc, TRANSPARENT);
+				SetTextColor(hdc, RGB(255, 0, 0));
+				TextOut(hdc, 70, 100, L"Hello DirectX 12!", 17);
+
+				// 6. 사용한 자원 해제
+				SelectObject(hdc, hOldBrush);
+				DeleteObject(hNewBrush);
+
 				EndPaint(hWnd, &ps);
 			}
 			break;
