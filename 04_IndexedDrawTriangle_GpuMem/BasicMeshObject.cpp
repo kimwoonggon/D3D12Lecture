@@ -147,6 +147,7 @@ BOOL CBasicMeshObject::CreateMesh()
 		{ { 0.25f, -0.25f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
 		{ { -0.25f, -0.25f, 0.0f }, { 0.0f, 0.5f, 0.5f, 1.0f } }
 	};
+	// 반시계 방향
 	WORD Indices[] =
 	{
 		0, 1, 2,
