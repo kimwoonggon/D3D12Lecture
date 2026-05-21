@@ -46,6 +46,15 @@ HRESULT CD3D12ResourceManager::CreateVertexBuffer(UINT SizePerVertex, DWORD dwVe
 	UINT		VertexBufferSize = SizePerVertex * dwVertexNum;
 
 	// create vertexbuffer for rendering
+	// 챕터 2에서는 GENERIC_READ로 해야 함 왜냐면 UPLOAD 힙에서
+	// 생성되는 리소스는 성능과 드라이버 제약상 무조건 GENERIC_READ밖에 대안이 없음
+	// 그런데 COMMON은 처음 만들때 DEFAULT HEAP에서 버퍼 리소스 지정
+	
+	
+	/*
+	* GPU가 쓰기 좋은 Default Heap에 버퍼 하나 만들게.
+	  근데 아직 이 버퍼를 어떤 GPU 작업에 쓸지는 중립 상태로 둘게.
+	*/
 	hr = m_pD3DDevice->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
@@ -59,7 +68,7 @@ HRESULT CD3D12ResourceManager::CreateVertexBuffer(UINT SizePerVertex, DWORD dwVe
 		__debugbreak();
 		goto lb_return;
 	}
-	if (pInitData)
+	if (pInitData) // Vertices 데이터
 	{
 		if (FAILED(m_pCommandAllocator->Reset()))
 			__debugbreak();
@@ -97,7 +106,7 @@ HRESULT CD3D12ResourceManager::CreateVertexBuffer(UINT SizePerVertex, DWORD dwVe
 		m_pCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(pVertexBuffer, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST));
 		m_pCommandList->CopyBufferRegion(pVertexBuffer, 0, pUploadBuffer, 0, VertexBufferSize);
 		m_pCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(pVertexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER));
-
+		// VertexBuffer 또는 Constant Buffer로 읽을 수 있다는 뜻이다.
 		m_pCommandList->Close();
 
 		ID3D12CommandList* ppCommandLists[] = { m_pCommandList };
