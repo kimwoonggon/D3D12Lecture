@@ -201,6 +201,8 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Quiz.md" />
+    <None Include="Summary.md" />
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

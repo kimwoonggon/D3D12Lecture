@@ -43,6 +43,9 @@
     <Filter Include="Renderer\Shader">
       <UniqueIdentifier>{7dd6429e-0777-4324-806d-9db02eba2478}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Docs">
+      <UniqueIdentifier>{cd6afa0b-d841-4735-b2c2-9f4c95cd9ac9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h">
@@ -116,5 +119,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="Summary.md">
+      <Filter>Docs</Filter>
+    </None>
+    <None Include="Quiz.md" />
   </ItemGroup>
 </Project>

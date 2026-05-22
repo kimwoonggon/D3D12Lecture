@@ -144,7 +144,7 @@ BOOL CD3D12ResourceManager::CreateTexture(ID3D12Resource** ppOutResource, UINT W
 	textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
 	if (FAILED(m_pD3DDevice->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), // GPU만 접근 가능한 VRAM
 		D3D12_HEAP_FLAG_NONE,
 		&textureDesc,
 		D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE,
@@ -180,6 +180,9 @@ BOOL CD3D12ResourceManager::CreateTexture(ID3D12Resource** ppOutResource, UINT W
 			__debugbreak();
 		}
 
+		// pUploadBuffer GPU에 있는 거임. cpu가 접근해서 갈 수 있는 임시 하역장.
+		// pMappedPtr는 CPU가 접근해서 갈 수 있는 포인터임. GPU로 가는 CPU에 있는 통로임.
+		// [1줄 데이터: 64바이트][ 빈 공간(패딩): 192바이트 ][2줄 데이터: 64바이트][ 빈 공간(패딩): 192바이트 ]...
 		HRESULT hr = pUploadBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pMappedPtr));
 		if (FAILED(hr))
 			__debugbreak();
@@ -190,7 +193,8 @@ BOOL CD3D12ResourceManager::CreateTexture(ID3D12Resource** ppOutResource, UINT W
 		{
 			memcpy(pDest, pSrc, Width * 4);
 			pSrc += (Width * 4);
-			pDest += Footprint.Footprint.RowPitch;			
+			// RowPitch : GPU는 이 선에 맞추어서 물건을 쌓아야 함
+			pDest += Footprint.Footprint.RowPitch;		// 256	
 		}
 		// Unmap
 		pUploadBuffer->Unmap(0, nullptr);

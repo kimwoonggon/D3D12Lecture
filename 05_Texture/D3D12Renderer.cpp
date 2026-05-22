@@ -108,6 +108,7 @@ lb_exit:
 		}
 	}
 
+	// m_pRTVHeap 생성
 	CreateDescriptorHeapForRTV();
 
 
@@ -175,6 +176,7 @@ lb_exit:
 	{
 		m_pSwapChain->GetBuffer(n, IID_PPV_ARGS(&m_pRenderTargets[n]));
 		m_pD3DDevice->CreateRenderTargetView(m_pRenderTargets[n], nullptr, rtvHandle);
+        // 다음 1*m_rtvDescriptorSize 만큼 이동하라
 		rtvHandle.Offset(1, m_rtvDescriptorSize);
 	}
 

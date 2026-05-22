@@ -124,7 +124,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		}
 		else
 		{
-			//RunGame();
+			RunGame();
 		}
 	}
 	if (g_pMeshObj)

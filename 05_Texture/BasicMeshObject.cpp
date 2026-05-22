@@ -41,10 +41,24 @@ BOOL CBasicMeshObject::InitRootSinagture()
 	ID3DBlob* pSignature = nullptr;
 	ID3DBlob* pError = nullptr;
 
-	CD3DX12_DESCRIPTOR_RANGE ranges[1] = {};
+	/*
+	* 이번에 셰이더로 넘길 자원은 SRV(텍스처) 종류이고, 개수는 1개이며, 셰이더의 t0 레지스터부터 시작해라"라는 상세 내역 지정. 
+	만약 텍스처를 3개 연속으로 넘기고 싶다면 개수를 3으로 지정하여 t0, t1, t2를 묶을 수도 있다
+	*/
+	CD3DX12_DESCRIPTOR_RANGE ranges[1] = {}; // 연속된 범위
+	
 	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);	// t0 : texture
 	
+	/*
+    * range로 자원의 종류와 레지스터 번호를 상세히 정의 후 이를 rootparameters에 담아서 큰
+	* Descriptor Table 매개변수로 묶어서 셰이더에 전달.
+	*/
 	CD3DX12_ROOT_PARAMETER rootParameters[1] = {};
+	/*
+	* 만약 Pixel Shader에서 100% 쓰이는 것이 확실하면 D3D12_SHADER_VISIBILITY_PIXEL로 지정하여 Pixel Shader에서만
+	* 접근 가능하도록 한다.
+	* InitAsConstants(), InitAsConstantBufferView()가 있다. 이 경우 heap에 자원을 올려서 Descriptor Table로 넘기는 방식이 아니어도 된다.
+	*/
 	rootParameters[0].InitAsDescriptorTable(_countof(ranges), ranges, D3D12_SHADER_VISIBILITY_ALL);
 
 	// default sampler
@@ -65,11 +79,12 @@ BOOL CBasicMeshObject::InitRootSinagture()
 	//rootSignatureDesc.Init(0, nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 	rootSignatureDesc.Init(_countof(rootParameters), rootParameters, 1, &sampler, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
+	// 2. GPU 제조사(NVIDIA/AMD)가 즉시 읽을 수 있는 "압축 바코드 파일"로 변환한 뒤,
 	if (FAILED(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &pSignature, &pError)))
 	{
 		__debugbreak();
 	}
-
+	// 3. 그 바코드를 찍어서 GPU 내부에 진짜 통로 장치를 생산합니다.
 	if (FAILED(pD3DDeivce->CreateRootSignature(0, pSignature->GetBufferPointer(), pSignature->GetBufferSize(), IID_PPV_ARGS(&m_pRootSignature))))
 	{
 		__debugbreak();
@@ -267,6 +282,27 @@ lb_return:
 }
 void CBasicMeshObject::Draw(ID3D12GraphicsCommandList* pCommandList)
 {
+
+	/*
+	* // 프레임 시작: 무거운 보관함 장착은 "딱 한 번만" 합니다.
+		pCommandList->SetDescriptorHeaps(1, &m_pGlobalDescriptorHeap);
+
+		// -------------------------------------------------------------
+		// 캐릭터 1 그리기 (가벼운 주소 전달만)
+		CD3DX12_GPU_DESCRIPTOR_HANDLE char1Handle = ...; // 힙의 0번 칸 (캐릭터1 텍스처)
+		pCommandList->SetGraphicsRootDescriptorTable(0, char1Handle); 
+		pCommandList->DrawInstanced(...);
+
+		// 캐릭터 2 그리기 (보관함은 그대로 두고, 가볍게 주소만 슥 바꿈)
+		CD3DX12_GPU_DESCRIPTOR_HANDLE char2Handle = ...; // 힙의 50번 칸 (캐릭터2 텍스처)
+		pCommandList->SetGraphicsRootDescriptorTable(0, char2Handle); 
+		pCommandList->DrawInstanced(...);
+
+		// 배경 그리기 (보관함은 그대로 두고, 또 주소만 바꿈)
+		CD3DX12_GPU_DESCRIPTOR_HANDLE bgHandle = ...;    // 힙의 120번 칸 (배경 텍스처)
+		pCommandList->SetGraphicsRootDescriptorTable(0, bgHandle); 
+		pCommandList->DrawInstanced(...);
+	*/
 	// set RootSignature
 	pCommandList->SetGraphicsRootSignature(m_pRootSignature);
 
