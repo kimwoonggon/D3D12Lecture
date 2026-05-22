@@ -172,3 +172,84 @@ PSInput VSMain(VSInput input) {
     ...
 }
 ```
+
+---
+
+## 11. pPos → GPU 렌더링 반영 전체 흐름
+
+### 텍스트 흐름 요약
+
+```
+[main.cpp] Update()
+  g_fOffsetX += g_fSpeed
+       ↓
+[main.cpp] RenderMeshObject(g_fOffsetX, g_fOffsetY)
+       ↓
+[D3D12Renderer.cpp] RenderMeshObject()
+  XMFLOAT2 Pos = { x_offset, y_offset }
+  pMeshObj->Draw(pCommandList, &Pos)
+       ↓
+[BasicMeshObject.cpp] Draw(pCommandList, pPos)
+  ① m_pSysConstBufferDefault->offset.x = pPos->x   ← CPU가 Upload 힙에 직접 씀
+     (Map()으로 연결된 포인터이므로 즉시 GPU 메모리에 반영)
+  ② SetGraphicsRootSignature(m_pRootSignature)       ← 자원 규격 선언
+  ③ SetDescriptorHeaps(1, &m_pDescritorHeap)         ← 힙 장착
+  ④ SetGraphicsRootDescriptorTable(0, gpuHandle)     ← 힙 시작 주소 바인딩
+  ⑤ DrawInstanced(3, 1, 0, 0)                        ← 드로우콜 발행
+       ↓
+[GPU - Vertex Shader]
+  g_Offset = Descriptor Table[0] → CBV(b0) 읽기
+  result.position.xy += g_Offset.xy
+       ↓
+[GPU - Rasterizer / Pixel Shader]
+  최종 화면 출력
+```
+
+---
+
+### Mermaid 차트
+
+```mermaid
+flowchart TD
+    A["Update()\ng_fOffsetX += g_fSpeed\n방향 반전: ±0.75 경계"] -->|"매 ~16ms"| B
+
+    B["RenderMeshObject(g_fOffsetX, g_fOffsetY)\n[main.cpp]"] --> C
+
+    C["Draw(pCommandList, &Pos)\n[BasicMeshObject.cpp]"] --> D
+
+    D["① CPU → Upload Heap 직접 쓰기\nm_pSysConstBufferDefault->offset.x = pPos->x\n\nMap()으로 이미 연결된 포인터\n→ 즉시 GPU 메모리 반영"] --> E
+
+    E["② SetGraphicsRootSignature()\n자원 규격 선언\n'슬롯0 = Descriptor Table\n  └ CBV(b0) + SRV(t0)'"] --> F
+
+    F["③ SetDescriptorHeaps()\nm_pDescritorHeap 장착\n┌──────────────┐\n│[0] CBV ← offset│\n│[1] SRV ← 텍스처│\n└──────────────┘"] --> G
+
+    G["④ SetGraphicsRootDescriptorTable(0, gpuHandle)\n힙의 [0]번 주소를 Root Parameter 0에 바인딩\nGPU에게 '여기서부터 읽어라' 전달"] --> H
+
+    H["⑤ DrawInstanced(3, 1, 0, 0)\n커맨드 리스트에 드로우콜 기록\n(아직 실행 아님 - 명령 예약)"] --> I
+
+    I["ExecuteCommandLists()\n[EndRender() 내부]\nGPU가 커맨드 리스트 실행 시작"] --> J
+
+    J["GPU - Vertex Shader 실행\ncbuffer b0 읽기\ng_Offset = Upload Heap의 offset 값\nresult.position.xy += g_Offset.xy"] --> K
+
+    K["GPU - Rasterizer\n삼각형 픽셀 분해"] --> L
+
+    L["GPU - Pixel Shader\ntexDiffuse.Sample() → 텍스처 색상\nreturn texColor * input.color"] --> M
+
+    M["Present()\n백버퍼 → 화면 출력"]
+
+    style D fill:#d4edda,stroke:#28a745
+    style J fill:#cce5ff,stroke:#004085
+    style F fill:#fff3cd,stroke:#856404
+    style E fill:#fff3cd,stroke:#856404
+    style G fill:#fff3cd,stroke:#856404
+```
+
+### 핵심 포인트
+
+| 단계 | 위치 | 특이사항 |
+|---|---|---|
+| ① Upload 힙 쓰기 | CPU | Map()으로 포인터 직결, 복사 없음 |
+| ②③④ 커맨드 기록 | CPU | 실제 GPU 실행이 아닌 명령 예약 |
+| ⑤ DrawInstanced | CPU | 커맨드 리스트에 기록만 함 |
+| ExecuteCommandLists | CPU→GPU | 이 시점에 GPU가 실제 실행 시작 |
+| Vertex Shader | GPU | Upload 힙에서 offset 값 읽어 위치 계산 |
