@@ -221,6 +221,9 @@ void CBasicMeshObject::Draw(ID3D12GraphicsCommandList* pCommandList, const XMFLO
 
 	// 이번에 사용할 constant buffer의 descriptor를 렌더링용(shader visible) descriptor table에 카피
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cbvDest(cpuDescriptorTable, BASIC_MESH_DESCRIPTOR_INDEX_CBV, srvDescriptorSize);
+	// 초고속으로 descriptor를 카피하는 함수. 
+	// Alloc 단계에서는 아직 구쳊거인 descriptor가 물리적 메모리인 heap에  없다.
+	// cpu측 코드에서는 cpu descriptor handle에만 write가능
 	pD3DDeivce->CopyDescriptorsSimple(1, cbvDest, pCB->CBVHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);	// cpu측 코드에서는 cpu descriptor handle에만 write가능
 	
 	//CD3DX12_CPU_DESCRIPTOR_HANDLE
