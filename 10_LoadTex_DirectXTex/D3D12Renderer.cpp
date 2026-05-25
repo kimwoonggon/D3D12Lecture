@@ -572,7 +572,9 @@ void* CD3D12Renderer::CreateTextureFromFile(const WCHAR* wchFileName)
 	if (m_pResourceManager->CreateTextureFromFile(&pTexResource, &desc, wchFileName))
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
-		SRVDesc.Format = desc.Format;
+		SRVDesc.Format = desc.Format; // Ch09는 DXGI_FORMAT_R8G8B8A8_UNORM 고정, Ch10은 desc.Format으로 동적 결정
+		// Ch09 CreateTiledTexture는 CPU에서 직접 RGBA 픽셀을 만들므로 포맷이 DXGI_FORMAT_R8G8B8A8_UNORM으로 고정된다. 
+		// Ch10 CreateTextureFromFile은 파일 포맷이 BC1, BC3, BC7, RGBA 등 다양할 수 있으므로 desc.Format을 그대로 사용해야 한다.
 		SRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		SRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		SRVDesc.Texture2D.MipLevels = desc.MipLevels;

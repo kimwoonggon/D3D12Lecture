@@ -319,8 +319,8 @@ BOOL CD3D12ResourceManager::CreateTextureFromFile(ID3D12Resource** ppOutResource
 		goto lb_return;
 	}
 	textureDesc = pTexResource->GetDesc();
-	UINT subresoucesize = (UINT)subresouceData.size();	
-	UINT64 uploadBufferSize = GetRequiredIntermediateSize(pTexResource, 0, subresoucesize);
+	UINT subresoucesize = (UINT)subresouceData.size();	// 10
+	UINT64 uploadBufferSize = GetRequiredIntermediateSize(pTexResource, 0, subresoucesize);  // pTexResource : Default Heap
 
 	// Create the GPU upload buffer.
 	if (FAILED(m_pD3DDevice->CreateCommittedResource(
@@ -341,6 +341,9 @@ BOOL CD3D12ResourceManager::CreateTextureFromFile(ID3D12Resource** ppOutResource
 		__debugbreak();
 
 	m_pCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(pTexResource, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST));
+	// ddsData (CPU RAM) -> Map/memcpy/Unmap -> pUploadBuffer(UPLOAD 힙)
+	// mip0, mip1, ..., mip9 복사
+	// 커맨드 리스트에 기록만 함, 아직 GPU 미실행
 	UpdateSubresources(m_pCommandList, pTexResource, pUploadBuffer,	0, 0, subresoucesize, &subresouceData[0]);
 	m_pCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(pTexResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE));
 
