@@ -443,7 +443,7 @@ void CD3D12Renderer::Present()
 		__debugbreak();
 	}
 
-	m_uiRenderTargetIndex = m_pSwapChain->GetCurrentBackBufferIndex();
+	m_uiRenderTargetIndex = m_pSwapChain->GetCurrentBackBufferIndex(); // 0, 1, 0, 1, 0, 1 ... ±³´ë·Î ³ª¿È
 
 	// prepare next frame
 	DWORD	dwNextContextIndex = (m_dwCurContextIndex + 1) % MAX_PENDING_FRAME_COUNT;
