@@ -654,7 +654,13 @@ void* CD3D12Renderer::CreateTextureFromFile(const WCHAR* wchFileName)
 		if (m_pSingleDescriptorAllocator->AllocDescriptorHandle(&srv))
 		{
 			m_pD3DDevice->CreateShaderResourceView(pTexResource, &SRVDesc, srv);
-
+			/*
+			* struct TEXTURE_HANDLE
+			{
+				ID3D12Resource*	pTexResource;
+				D3D12_CPU_DESCRIPTOR_HANDLE srv;
+			};
+			*/
 			pTexHandle = new TEXTURE_HANDLE;
 			pTexHandle->pTexResource = pTexResource;
 			pTexHandle->srv = srv;

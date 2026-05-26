@@ -142,8 +142,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	g_pMeshObj1 = CreateQuadMesh();
 
 	// create sprite
-	g_pTexHandle0 = g_pRenderer->CreateTextureFromFile(L"tex_00.dds");
-	g_pSpriteObjCommon = g_pRenderer->CreateSpriteObject();
+	g_pTexHandle0 = g_pRenderer->CreateTextureFromFile(L"tex_00.dds"); // srv및 texture buffer 소유
+	g_pSpriteObjCommon = g_pRenderer->CreateSpriteObject(); // 뼈대 버퍼랑, 인덱스 소유
 
 	g_pSpriteObj0 = g_pRenderer->CreateSpriteObject(L"sprite_1024x1024.dds", 0, 0, 512, 512);
 	g_pSpriteObj1 = g_pRenderer->CreateSpriteObject(L"sprite_1024x1024.dds", 512, 0, 1024, 512);
@@ -331,7 +331,7 @@ void RunGame()
 	rect.top = 0;
 	rect.right = 256;
 	rect.bottom = 256;
-	g_pRenderer->RenderSpriteWithTex(g_pSpriteObjCommon, 0, 0, 0.5f, 0.5f, &rect, 0.0f, g_pTexHandle0);
+    g_pRenderer->RenderSpriteWithTex(g_pSpriteObjCommon, 0, 0, 0.5f, 0.5f, &rect, 0.0f, g_pTexHandle0); // g_pSpriteObjCommon 은 뼈대, g_pTexHandle0는 텍스처 소유
 
 	rect.left = 256;
 	rect.top = 0;
