@@ -1178,3 +1178,140 @@ IASetIndexBuffer      → 이번 면의 인덱스 버퍼 교체
 DrawIndexedInstanced  → 실제 GPU 드로우
 ─── 루프 반복 ──────────────────────────────────
 ```
+
+---
+
+## Q23. DescriptorPool 슬롯 카운터의 증가 단위
+
+한 프레임에서 박스(6 tri-group)와 쿼드(1 tri-group)를 렌더링할 때 `m_AllocatedDescriptorCount`가 증가하는 패턴은?
+
+```cpp
+RenderMeshObject(박스, matWorld0)   // dwRequired = 1 + 6×1 = 7
+RenderMeshObject(박스, matWorld1)   // dwRequired = 1 + 6×1 = 7
+RenderMeshObject(쿼드, matWorld2)   // dwRequired = 1 + 1×1 = 2
+```
+
+`AllocDescriptorTable` 내부:
+```cpp
+*pOutCPU = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_cpuHandle, m_AllocatedDescriptorCount, size);
+*pOutGPU = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_gpuHandle, m_AllocatedDescriptorCount, size);
+m_AllocatedDescriptorCount += DescriptorCount;  // 호출마다 dwRequiredDescriptorCount만큼 증가
+```
+
+```
+프레임 시작 → m_AllocatedDescriptorCount = 0
+
+박스 Draw #1  → dwRequired = 7  → 카운터: 0  → 7   (슬롯 0~6  사용)
+박스 Draw #2  → dwRequired = 7  → 카운터: 7  → 14  (슬롯 7~13 사용)
+쿼드 Draw #3  → dwRequired = 2  → 카운터: 14 → 16  (슬롯 14~15 사용)
+
+Present() → Reset() → m_AllocatedDescriptorCount = 0
+```
+
+각 Draw 호출은 자신의 슬롯 블록을 연속으로 할당받으므로 서로 겹치지 않는다.
+
+---
+
+## Q24. Descriptor 슬롯 1개의 실제 크기
+
+`srvDescriptorSize = 32`일 때, 박스 1번의 Draw에서 shader-visible heap이 차지하는 실제 바이트 크기는?
+
+- `dwRequiredDescriptorCount = 7` (CBV 1 + SRV 6)
+- 슬롯 1개 = `srvDescriptorSize` = 32 bytes
+
+```
+base + 0   [slot 0] CBV  ─ 32 bytes
+base + 32  [slot 1] SRV0 ─ 32 bytes
+base + 64  [slot 2] SRV1 ─ 32 bytes
+base + 96  [slot 3] SRV2 ─ 32 bytes
+base + 128 [slot 4] SRV3 ─ 32 bytes
+base + 160 [slot 5] SRV4 ─ 32 bytes
+base + 192 [slot 6] SRV5 ─ 32 bytes
+base + 224 ← 다음 Draw의 시작 위치
+```
+
+**32 × 7 = 224 bytes** 연속 사용.  
+`Dest.Offset(1, srvDescriptorSize)` = 포인터를 32바이트씩 전진.  
+CBV든 SRV든 힙에서 동일한 32바이트 슬롯을 차지한다.
+
+---
+
+## Q25. PSO/RootSignature는 GPU에서 복사되나?
+
+박스를 렌더링하면 모니터에 6면이 보인다. GPU 내부에서 PSO/RootSignature가 복사되는 것인가?
+
+**아니다.** 복사되는 것과 복사되지 않는 것을 구분해야 한다.
+
+```
+GPU 메모리
+┌──────────────────────────────────────────┐
+│ [PSO - 셰이더 프로그램]    1개, 영구 존재 │ ← 복사 안 됨, 참조만
+│ [RootSignature - 레이아웃] 1개, 영구 존재 │ ← 복사 안 됨, 참조만
+│                                          │
+│ [버텍스/인덱스 버퍼]       오브젝트별     │ ← 복사 안 됨, 참조만
+│ [텍스처 데이터]             텍스처별      │ ← 복사 안 됨, 참조만
+│ [Upload Heap - 상수버퍼]   매 프레임 변경 │ ← 행렬 데이터만 CPU→GPU 복사
+│ [RenderTarget 백버퍼]                    │ ← 픽셀 색상값이 새로 써짐
+└──────────────────────────────────────────┘
+```
+
+`SetGraphicsRootSignature(m_pRootSignature)` / `SetPipelineState(m_pPipelineState)`는  
+GPU에게 **"이 주소에 있는 객체를 참조해라"** 고 포인터를 알려주는 것이다. 데이터를 복사하지 않는다.
+
+모니터에 보이는 박스 6면은 **RenderTarget 버퍼(백버퍼)에 픽셀 색상값이 써진 것**이다:
+
+```
+설계도 (PSO/RootSignature) ─ GPU에 1개, 복사 없음
+재료   (버텍스/텍스처)     ─ GPU에 1개, 복사 없음
+        ↓ GPU가 처리
+출력물 (픽셀 색상)         ─ 백버퍼에 새로 써짐 ← 이것만 생성됨
+        ↓ Present()
+모니터 출력
+```
+
+---
+
+## Q26. `m_pRootSignature`/`m_pPipelineState` static 멤버의 수명주기
+
+`static` 멤버여서 인스턴스가 여러 개 생겨도 1개만 존재한다고 할 때, 정확히 언제 생성되고 언제 해제되는가?
+
+**생성 시점:** 첫 번째 `CreateBasicMeshObject()` 호출 시 (`m_dwInitRefCount == 0`일 때)
+
+```
+CreateBasicMeshObject() #1 (박스) → m_dwInitRefCount=0 → InitRootSignature() + InitPipelineState() 실행
+                                                         m_dwInitRefCount = 1
+CreateBasicMeshObject() #2 (쿼드) → m_dwInitRefCount=1 → 건너뜀
+                                                         m_dwInitRefCount = 2
+```
+
+**존재 기간:**
+
+```
+인스턴스 A (박스)  ─────────────────────────── DeleteBasicMeshObject() → refCount=1
+인스턴스 B (쿼드)  ────────────── DeleteBasicMeshObject() → refCount=0 → Release()
+                                                                           ↑
+m_pRootSignature  ══════════════════════════════════════════════════════════X
+m_pPipelineState  ══════════════════════════════════════════════════════════X
+```
+
+**해제 시점:** 마지막 인스턴스가 `DeleteBasicMeshObject()`로 삭제되어 `m_dwInitRefCount`가 0이 될 때
+
+```cpp
+// CleanupSharedResources 내부
+m_dwInitRefCount--;
+if (m_dwInitRefCount == 0)
+{
+    m_pRootSignature->Release();  // 마지막 인스턴스 삭제 시 비로소 해제
+    m_pPipelineState->Release();
+}
+```
+
+**일반 멤버(인스턴스별)와 비교:**
+
+```
+                  인스턴스 A (박스)   인스턴스 B (쿼드)   static (공유)
+m_pVertexBuffer       [박스 데이터]       [쿼드 데이터]
+m_pTriGroupList       [6개]              [1개]
+m_pRootSignature           └────────────────────── [공유 1개] ──┘
+m_pPipelineState           └────────────────────── [공유 1개] ──┘
+```
