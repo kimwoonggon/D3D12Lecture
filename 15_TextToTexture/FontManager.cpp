@@ -284,6 +284,8 @@ BOOL CFontManager::CreateBitmapFromText(int* piOutWidth, int* piOutHeight, IDWri
 
 	D2D1_POINT_2U	destPos = {};
 	D2D1_RECT_U		srcRect = { 0, 0, width, height };
+
+	// m_pD2DTargetBitmapRead를 통해 system(cpu) 메모리로 보낸다.
 	if (FAILED(m_pD2DTargetBitmapRead->CopyFromBitmap(&destPos, m_pD2DTargetBitmap, &srcRect)))
 		__debugbreak();
 
