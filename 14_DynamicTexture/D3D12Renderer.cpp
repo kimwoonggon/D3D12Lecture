@@ -483,7 +483,7 @@ void CD3D12Renderer::UpdateTextureWithImage(void* pTexHandle, const BYTE* pSrcBi
 	{
 		memcpy(pDest, pSrc, SrcWidth * 4);
 		pSrc += (SrcWidth * 4);
-		pDest += Footprint.Footprint.RowPitch;			
+		pDest += Footprint.Footprint.RowPitch;		// Image 가로길이 * 4라는 보장이 없다.	
 	}
 	// Unmap
 	pUploadBuffer->Unmap(0, nullptr);
@@ -647,7 +647,7 @@ void* CD3D12Renderer::CreateDynamicTexture(UINT TexWidth, UINT TexHeight)
 
 
 	DXGI_FORMAT TexFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-
+	// pTexResource, pUploadBuffer 두 벌 생성
 	if (m_pResourceManager->CreateTexturePair(&pTexResource, &pUploadBuffer, TexWidth, TexHeight, TexFormat))
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};

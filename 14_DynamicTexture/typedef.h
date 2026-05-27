@@ -59,7 +59,8 @@ struct CONSTANT_BUFFER_PROPERTY
 	UINT Size;
 };
 
-
+//D3D11은 Immediate Context와 Deferred Context가 존재
+// System Memory에 있는 pUploadBuffer가 GPU Memory에 있는 pTexResource로 복사된다.
 struct TEXTURE_HANDLE
 {
 	ID3D12Resource*	pTexResource;

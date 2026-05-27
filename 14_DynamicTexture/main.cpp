@@ -492,11 +492,11 @@ void Update()
 	{
 		g_dwCount = 0;
 	}
-	DWORD TileY = g_dwCount / TILE_WIDTH_COUNT;
-	DWORD TileX = g_dwCount % TILE_WIDTH_COUNT;
-
-	DWORD StartX = TileX * TILE_WIDTH;
-	DWORD StartY = TileY * TILE_HEIGHT;
+	DWORD TileY = g_dwCount / TILE_WIDTH_COUNT; // 15
+	DWORD TileX = g_dwCount % TILE_WIDTH_COUNT; // 31
+	
+	DWORD StartX = TileX * TILE_WIDTH; // 31 * 16
+	DWORD StartY = TileY * TILE_HEIGHT; // 15 * 16
 
 
 	//DWORD r = rand() % 256;
