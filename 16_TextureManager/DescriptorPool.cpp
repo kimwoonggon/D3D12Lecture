@@ -12,6 +12,11 @@ CDescriptorPool::CDescriptorPool()
 {
 
 }
+/*
+* D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE으로 만든 힙. 
+GPU가 직접 읽는 곳. 드로우콜마다 AllocDescriptorTable()로 | CBV | SRV(tex0) | SRV(tex1) | ... 
+형태의 연속 슬롯을 bump 할당하고, 프레임 끝에 Reset()으로 전부 초기화한다. 2개인 이유는 더블버퍼링.
+*/
 BOOL CDescriptorPool::Initialize(ID3D12Device5* pD3DDevice, UINT MaxDescriptorCount)
 {
 

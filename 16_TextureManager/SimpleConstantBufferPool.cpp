@@ -55,6 +55,7 @@ BOOL CSimpleConstantBufferPool::Initialize(ID3D12Device* pD3DDevice, CONSTANT_BU
 	CD3DX12_CPU_DESCRIPTOR_HANDLE	heapHandle(m_pCBVHeap->GetCPUDescriptorHandleForHeapStart());
 
 	UINT	DescriptorSize = pD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	// constant buffer만 넣으니까 256개. 
 	for (DWORD i = 0; i < m_MaxCBVNum; i++)
 	{
 		pD3DDevice->CreateConstantBufferView(&cbvDesc, heapHandle);

@@ -16,7 +16,9 @@ BOOL CTextureManager::Initialize(CD3D12Renderer* pRenderer, DWORD dwMaxBucketNum
 	m_pRenderer = pRenderer;
 	m_pResourceManager = pRenderer->INL_GetResourceManager();
 
+	// STL을 쓰는게 좋을텐데..
 	m_pHashTable = new CHashTable;
+	// 
 	m_pHashTable->Initialize(dwMaxBucketNum, _MAX_PATH * sizeof(WCHAR), dwMaxFileNum);
 
 	return TRUE;
